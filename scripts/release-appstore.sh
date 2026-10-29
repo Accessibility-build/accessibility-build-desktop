@@ -51,4 +51,8 @@ xcodebuild -exportArchive -archivePath build/appstore/AccessibilityBuild.xcarchi
   -exportOptionsPlist build/appstore/export.plist -exportPath build/appstore/export \
   -allowProvisioningUpdates -quiet
 
-ls -la build/appstore/export
+if [[ "$DESTINATION" == export ]]; then
+  ls -la build/appstore/export
+else
+  echo "Uploaded. App Store Connect processes the build in about 10 to 30 minutes; then pick it on the version page."
+fi
