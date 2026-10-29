@@ -126,14 +126,18 @@ The record exists: Apple ID `6828445898`, version `1.0.0` (matches
   **not yet published** (Publish asks you to attest that the answers are
   accurate).
 - Pricing: Free in all 175 countries or regions; availability in all of them.
+- Build: 1.0.0 (1), uploaded and processed ("Ready to Submit", expires in
+  90 days), attached to the version; Apple extracted the app icon from it.
 
 Left for you:
 
 1. App Privacy, **Publish**.
 2. Version page, App Review Information: contact first and last name, phone
    and email (App Review calls or emails only about this submission).
-3. Upload a build (step 2 below), pick it in the Build section, then **Add
-   for Review**.
+3. Test build 1 live (Screen Recording granted, the review notes' steps on a
+   real screen), then **Add for Review**. If it needs a fix, raise
+   `CURRENT_PROJECT_VERSION`, run `scripts/release-appstore.sh upload` and
+   pick the new build.
 4. Optional but worth it for this app, after a VoiceOver and Voice Control
    pass on a real screen: **App Accessibility** labels. Likely true today:
    Dark Interface, Sufficient Contrast, Differentiate Without Color Alone,
@@ -141,8 +145,8 @@ Left for you:
    task has been completed with each. Leave Larger Text off: the app has no
    way to enlarge its text to 200% today.
 
-Screenshots must have no alpha channel; `scripts/snapshots.sh` writes them
-opaque.
+Screenshots must have no alpha channel; `APP_STORE=1 scripts/snapshots.sh`
+writes them opaque, in sRGB.
 
 ## Submitting
 
