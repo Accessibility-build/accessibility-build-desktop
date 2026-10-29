@@ -59,6 +59,11 @@ struct SessionLogView: View {
                 .disabled(selection.isEmpty)
                 .help("Remove the selected entries (Delete)")
             }
+            // macOS 26 joins adjacent toolbar items into one group; spacers
+            // keep Remove, the export pair and the destructive Clear apart.
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .primaryAction)
+            }
             ToolbarItem(placement: .primaryAction) {
                 Button {
                     Pasteboard.copy(store.markdown)
@@ -76,6 +81,9 @@ struct SessionLogView: View {
                 .keyboardShortcut("s", modifiers: .command)
                 .disabled(store.entries.isEmpty)
                 .help("Save the session as a Markdown file")
+            }
+            if #available(macOS 26.0, *) {
+                ToolbarSpacer(.fixed, placement: .primaryAction)
             }
             ToolbarItem(placement: .primaryAction) {
                 Button { confirmsClear = true } label: {

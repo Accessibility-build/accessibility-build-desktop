@@ -72,6 +72,8 @@ enum Snapshot {
 
         Windows.showSettings()
         if let w = Windows.window("settings"), let tabs = w.contentViewController as? NSTabViewController {
+            let items = (w.toolbar?.items ?? []).map(\.itemIdentifier.rawValue).joined(separator: "\n")
+            try? (items + "\n").write(to: dir.appendingPathComponent("toolbar-settings.txt"), atomically: true, encoding: .utf8)
             for (i, tab) in SettingsTabsController.tabs.enumerated() {
                 tabs.selectedTabViewItemIndex = i
                 await settle()

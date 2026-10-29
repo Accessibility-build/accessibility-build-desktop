@@ -23,10 +23,33 @@ final class SettingsTabsController: NSTabViewController {
             // Settings-style preference windows do.
             host.sizingOptions = [.preferredContentSize]
             let item = NSTabViewItem(viewController: host)
+            // Stable identifiers, so the toolbar code can tell tabs apart
+            // from system items.
+            item.identifier = "settings.\(tab.title.lowercased())"
             item.label = tab.title
             item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
             addTabViewItem(item)
         }
+    }
+
+    // On macOS 26 and later, toolbar items placed side by side are drawn as
+    // one joined group, so the three tabs touched. A standard space item
+    // between neighbours separates them, as in Apple's own settings windows.
+    override func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        let identifiers = super.toolbarDefaultItemIdentifiers(toolbar)
+        let tabs = Set(tabViewItems.compactMap { $0.identifier as? String }.map { NSToolbarItem.Identifier($0) })
+        var spaced: [NSToolbarItem.Identifier] = []
+        for id in identifiers {
+            if tabs.contains(id), let last = spaced.last, tabs.contains(last) {
+                spaced.append(.space)
+            }
+            spaced.append(id)
+        }
+        return spaced
+    }
+
+    override func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        super.toolbarAllowedItemIdentifiers(toolbar) + [.space]
     }
 
     override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
