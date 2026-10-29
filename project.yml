@@ -1,0 +1,96 @@
+# XcodeGen spec. The .xcodeproj is generated from this file and is not
+# committed: run `xcodegen generate` (scripts/build.sh does it for you).
+name: AccessibilityBuild
+options:
+  bundleIdPrefix: build.accessibility
+  deploymentTarget:
+    macOS: "14.0"
+  createIntermediateGroups: true
+  developmentLanguage: en
+settings:
+  base:
+    MARKETING_VERSION: 1.0.0
+    CURRENT_PROJECT_VERSION: 1
+    SWIFT_VERSION: "5.0"
+    DEVELOPMENT_TEAM: TVQX6QVQ7N
+    # Debug and Release are both signed with the Developer ID certificate
+    # so the Screen Recording grant survives rebuilds (macOS ties the grant
+    # to the code signature; ad-hoc builds lose it on every build).
+    CODE_SIGN_STYLE: Manual
+    CODE_SIGN_IDENTITY: "Developer ID Application"
+    ENABLE_HARDENED_RUNTIME: YES
+    OTHER_CODE_SIGN_FLAGS: --timestamp
+    DEAD_CODE_STRIPPING: YES
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    exactVersion: 2.10.0
+  KeyboardShortcuts:
+    url: https://github.com/sindresorhus/KeyboardShortcuts
+    exactVersion: 3.1.0
+  ColorCore:
+    path: Packages/ColorCore
+  AuditCore:
+    path: Packages/AuditCore
+targets:
+  AccessibilityBuild:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Resources/Assets.xcassets
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: Resources/Info.plist
+      properties:
+        CFBundleName: Accessibility Build
+        CFBundleDisplayName: Accessibility Build
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSUIElement: true
+        NSHumanReadableCopyright: "© 2026 Accessibility.build"
+        SUFeedURL: https://accessibility.build/desktop/appcast.xml
+        SUPublicEDKey: 84UjZtnQCHCVCcDcZluL9nS6RNc7pIG+svwrOqgqPTs=
+        SUEnableInstallerLauncherService: true
+        SUEnableSystemProfiling: false
+    entitlements:
+      path: Resources/AccessibilityBuild.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        # Only for the Sparkle update check and download.
+        com.apple.security.network.client: true
+        # Save panels for PNG and Markdown exports.
+        com.apple.security.files.user-selected.read-write: true
+        # Sparkle's installer services, as its sandboxing guide requires.
+        com.apple.security.temporary-exception.mach-lookup.global-name:
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spks
+          - $(PRODUCT_BUNDLE_IDENTIFIER)-spki
+    dependencies:
+      - package: Sparkle
+      - package: KeyboardShortcuts
+      - package: ColorCore
+      - package: AuditCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: build.accessibility.desktop
+        PRODUCT_NAME: Accessibility Build
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        GENERATE_INFOPLIST_FILE: NO
+      configs:
+        Release:
+          ARCHS: "arm64 x86_64"
+          ONLY_ACTIVE_ARCH: NO
+schemes:
+  AccessibilityBuild:
+    build:
+      targets:
+        AccessibilityBuild: all
+    run:
+      config: Debug
+    archive:
+      config: Release
