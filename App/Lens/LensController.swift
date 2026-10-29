@@ -355,8 +355,10 @@ extension LensController {
         isDemo = true
         let panel = self.panel ?? makePanel()
         self.panel = panel
-        panel.setContentSize(NSSize(width: 560, height: 420))
-        panel.center()
+        if !panel.isVisible {
+            panel.setContentSize(NSSize(width: 560, height: 420))
+            panel.center()
+        }
         panel.orderFrontRegardless()
         model.status = nil
         imageView?.simulationName = simulationName

@@ -21,6 +21,8 @@ pixels on your Mac. Nothing it captures is uploaded.
 
 ## Network
 
+- The Mac App Store build makes no network requests at all and has no
+  network entitlement. The rest of this section is about the website build.
 - The update check fetches `https://accessibility.build/desktop/appcast.xml`.
   Like any web request it reveals your IP address, and it includes the app's
   version. Sparkle's optional system profile is turned off.
@@ -30,7 +32,9 @@ pixels on your Mac. Nothing it captures is uploaded.
 
 ## Enforcement
 
-The app runs in the macOS App Sandbox with only these entitlements:
-outgoing network (for updates), files you choose in a save panel, and the two
-Mach services Sparkle's installer needs. Screen Recording is granted by you in
+The app runs in the macOS App Sandbox. The website build has only these
+entitlements: outgoing network (for updates), files you choose in a save
+panel, and the two Mach services Sparkle's installer needs. The App Store
+build has only the save-panel one. The public policy is at
+https://accessibility.build/desktop/privacy. Screen Recording is granted by you in
 System Settings and can be revoked there at any time.

@@ -145,10 +145,14 @@ final class AppActions: NSObject {
     @objc func checkForUpdates() { Updater.shared.checkForUpdates() }
 
     @objc func showAbout() {
-        let credits = NSAttributedString(
-            string: "Free contrast, color-vision and capture tools from accessibility.build. Screen pixels are processed on this Mac and never uploaded.",
-            attributes: [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.labelColor]
+        let body: [NSAttributedString.Key: Any] = [.font: NSFont.systemFont(ofSize: NSFont.smallSystemFontSize), .foregroundColor: NSColor.labelColor]
+        let credits = NSMutableAttributedString(
+            string: "Free contrast, color-vision and capture tools from accessibility.build. Screen pixels are processed on this Mac and never uploaded.\n\n",
+            attributes: body
         )
+        credits.append(NSAttributedString(string: "Privacy Policy", attributes: body.merging([.link: AppLinks.privacyPolicy]) { $1 }))
+        credits.append(NSAttributedString(string: "   ", attributes: body))
+        credits.append(NSAttributedString(string: "Support", attributes: body.merging([.link: AppLinks.support]) { $1 }))
         NSApp.activate()
         NSApp.orderFrontStandardAboutPanel(options: [.credits: credits])
     }

@@ -93,7 +93,71 @@ targets:
         Release:
           ARCHS: "arm64 x86_64"
           ONLY_ACTIVE_ARCH: NO
+  # The Mac App Store build: same app and bundle ID, but no Sparkle (App
+  # Store apps may not update themselves, guideline 2.4.5), no network
+  # entitlement (it makes no requests at all) and no temporary-exception
+  # entitlements. Code paths differ only under the APP_STORE condition.
+  AccessibilityBuildAppStore:
+    type: application
+    platform: macOS
+    sources:
+      - path: App
+      - path: Resources/Assets.xcassets
+      - path: Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
+      - path: Resources/PrivacyInfo.xcprivacy
+        buildPhase: resources
+    info:
+      path: Resources/Info-AppStore.plist
+      properties:
+        CFBundleName: Accessibility Build
+        CFBundleDisplayName: Accessibility Build
+        CFBundleShortVersionString: $(MARKETING_VERSION)
+        CFBundleVersion: $(CURRENT_PROJECT_VERSION)
+        LSMinimumSystemVersion: $(MACOSX_DEPLOYMENT_TARGET)
+        LSApplicationCategoryType: public.app-category.developer-tools
+        LSUIElement: true
+        NSHumanReadableCopyright: "© 2026 Accessibility.build"
+        # No encryption beyond what macOS provides; skips the export
+        # compliance question on every upload.
+        ITSAppUsesNonExemptEncryption: false
+    entitlements:
+      path: Resources/AccessibilityBuild-AppStore.entitlements
+      properties:
+        com.apple.security.app-sandbox: true
+        com.apple.security.files.user-selected.read-write: true
+    dependencies:
+      - package: KeyboardShortcuts
+      - package: ColorCore
+      - package: AuditCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: build.accessibility.desktop
+        PRODUCT_NAME: Accessibility Build
+        PRODUCT_MODULE_NAME: AccessibilityBuild
+        SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited) APP_STORE
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        COMBINE_HIDPI_IMAGES: YES
+        ENABLE_USER_SCRIPT_SANDBOXING: YES
+        GENERATE_INFOPLIST_FILE: NO
+        # Xcode manages the Mac App Store certificate and profile.
+        CODE_SIGN_STYLE: Automatic
+        CODE_SIGN_IDENTITY: Apple Development
+        OTHER_CODE_SIGN_FLAGS: ""
+      configs:
+        Release:
+          ARCHS: "arm64 x86_64"
+          ONLY_ACTIVE_ARCH: NO
 schemes:
+  AccessibilityBuildAppStore:
+    build:
+      targets:
+        AccessibilityBuildAppStore: all
+    run:
+      config: Debug
+    archive:
+      config: Release
   AccessibilityBuild:
     build:
       targets:

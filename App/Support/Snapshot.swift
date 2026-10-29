@@ -23,6 +23,7 @@ enum Snapshot {
         NSApp.appearance = NSAppearance(named: appearance == "dark" ? .darkAqua : .aqua)
         Task {
             await capture(to: URL(fileURLWithPath: dir), suffix: appearance)
+            if appearance == "light" { await storeShots(to: URL(fileURLWithPath: dir).appendingPathComponent("app-store")) }
             NSApp.terminate(nil)
         }
         return true
@@ -85,6 +86,9 @@ enum Snapshot {
             w.close()
         }
 
+        Windows.showWelcome()
+        if let w = Windows.window("welcome") { await settle(); write(png(of: w), "welcome"); audit(w, "welcome"); w.close() }
+
         Windows.showPermission()
         if let w = Windows.window("permission") { await settle(); write(png(of: w), "screen-recording"); audit(w, "screen-recording"); w.close() }
 
@@ -136,6 +140,17 @@ enum Snapshot {
         }
     }
 
+    private static func scrollToTop(_ view: NSView?) {
+        guard let view else { return }
+        if let scroll = view as? NSScrollView, let document = scroll.documentView {
+            let y = document.isFlipped ? 0 : max(0, document.bounds.height - scroll.contentView.bounds.height)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: y))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            return
+        }
+        for sub in view.subviews { scrollToTop(sub) }
+    }
+
     private static func scrollToBottom(_ view: NSView?) {
         guard let view else { return }
         if let scroll = view as? NSScrollView, let document = scroll.documentView {
@@ -145,6 +160,135 @@ enum Snapshot {
             return
         }
         for sub in view.subviews { scrollToBottom(sub) }
+    }
+
+    // MARK: Mac App Store screenshots
+
+    /// 2880 x 1800 (16:10 at 2x), the largest size App Store Connect takes.
+    /// Every image is the app's real interface over the sample page or a
+    /// plain backdrop; nothing is drawn that the app does not draw.
+    private static func storeShots(to dir: URL) async {
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        let page = SampleScreen.image(width: 2880, height: 1800, scale: 2)
+        let wallpaper = Self.wallpaper()
+        func save(_ image: CGImage?, _ name: String) {
+            guard let image, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
+            try? data.write(to: dir.appendingPathComponent("\(name).png"))
+        }
+        func capture(_ window: NSWindow) async -> CGImage? {
+            await settle()
+            return png(of: window).flatMap { NSBitmapImageRep(data: $0)?.cgImage }
+        }
+
+        // 1. The picker over a page, measuring white text on the gradient.
+        if let screen = NSScreen.main, let id = screen.displayID,
+           let (image, pixels) = try? ScreenCapture.toSRGB(page) {
+            let display = FrozenDisplay(
+                displayID: id,
+                geometry: DisplayGeometry(frame: CGRect(x: 0, y: 0, width: 1440, height: 900), scale: 2),
+                image: image, pixels: pixels)
+            let overlay = FreezeOverlay(displays: [display], mode: .contrast) { _ in }
+            overlay.show()
+            overlay.demo(text: .white, x: 2600, y: 660)
+            if let w = overlay.demoView?.window { save(await capture(w), "1-picker") }
+            overlay.demoCancel()
+        }
+
+        // 2. Check Colors beside the page it is checking.
+        ContrastModel.shared.load(text: .white, background: SRGB(hex: "#E8743B")!, worstCaseArea: nil)
+        Windows.showChecker()
+        if let w = Windows.window("checker") {
+            w.setContentSize(NSSize(width: 540, height: 800))
+            scrollToTop(w.contentView)
+            save(compose(page, dim: true, [(await capture(w), CGPoint(x: 1640, y: 110))]), "2-check-colors")
+            w.close()
+        }
+
+        // 3. The lens over the chart, showing exactly what is beneath it.
+        let lens = LensController.shared
+        lens.model.simulation = .deuteranopia
+        lens.model.split = true
+        let lensOrigin = CGPoint(x: 120, y: 500)
+        lens.showDemo(page, crop: CGRect(x: lensOrigin.x, y: lensOrigin.y, width: 1120, height: 840))
+        if let w = lens.demoWindow {
+            await settle()
+            // Crop exactly what the window covers, at its real size, so the
+            // lens shows the chart that is beneath it.
+            let scale = w.backingScaleFactor
+            let crop = CGRect(x: lensOrigin.x, y: lensOrigin.y, width: w.frame.width * scale, height: w.frame.height * scale)
+            lens.showDemo(page, crop: crop)
+            save(compose(page, dim: false, [(await capture(w), lensOrigin)]), "3-lens")
+        }
+        lens.close()
+
+        // 4. The session log and keyboard shortcuts.
+        Windows.showSessionLog()
+        Windows.showSettings()
+        if let log = Windows.window("log"), let settings = Windows.window("settings"),
+           let tabs = settings.contentViewController as? NSTabViewController {
+            log.setContentSize(NSSize(width: 600, height: 340))
+            tabs.selectedTabViewItemIndex = 2
+            let logImage = await capture(log)
+            let settingsImage = await capture(settings)
+            save(compose(wallpaper, dim: false, [(logImage, CGPoint(x: 180, y: 420)), (settingsImage, CGPoint(x: 1500, y: 330))]), "4-log-and-privacy")
+            tabs.selectedTabViewItemIndex = 0
+            log.close()
+            settings.close()
+        }
+
+        // 5. The welcome window, which points to the menu bar.
+        Windows.showWelcome()
+        if let w = Windows.window("welcome") {
+            let image = await capture(w)
+            let x = image.map { CGFloat(2880 - $0.width) / 2 } ?? 900
+            save(compose(wallpaper, dim: false, [(image, CGPoint(x: x, y: 180))]), "5-welcome")
+            w.close()
+        }
+    }
+
+    /// A soft light backdrop for windows that are not about a page.
+    private static func wallpaper() -> CGImage {
+        let ctx = CGContext(data: nil, width: 2880, height: 1800, bitsPerComponent: 8, bytesPerRow: 0,
+                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        let gradient = CGGradient(colorsSpace: CGColorSpace(name: CGColorSpace.sRGB)!, colors: [
+            CGColor(srgbRed: 0.86, green: 0.90, blue: 0.97, alpha: 1),
+            CGColor(srgbRed: 0.95, green: 0.91, blue: 0.95, alpha: 1),
+        ] as CFArray, locations: [0, 1])!
+        ctx.drawLinearGradient(gradient, start: CGPoint(x: 0, y: 1800), end: CGPoint(x: 2880, y: 0), options: [])
+        return ctx.makeImage()!
+    }
+
+    /// Windows over a backdrop, with macOS-like rounded corners and shadow.
+    /// Origins are in pixels from the top-left corner.
+    private static func compose(_ backdrop: CGImage, dim: Bool, _ windows: [(CGImage?, CGPoint)]) -> CGImage? {
+        let width = 2880, height = 1800
+        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.draw(backdrop, in: CGRect(x: 0, y: 0, width: width, height: height))
+        if dim {
+            ctx.setFillColor(CGColor(gray: 0, alpha: 0.12))
+            ctx.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        }
+        for case let (image?, origin) in windows {
+            let rect = CGRect(x: origin.x, y: CGFloat(height) - origin.y - CGFloat(image.height), width: CGFloat(image.width), height: CGFloat(image.height))
+            let shape = CGPath(roundedRect: rect, cornerWidth: 40, cornerHeight: 40, transform: nil)
+            ctx.saveGState()
+            ctx.setShadow(offset: CGSize(width: 0, height: -24), blur: 80, color: CGColor(gray: 0, alpha: 0.35))
+            ctx.addPath(shape)
+            ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+            ctx.fillPath()
+            ctx.restoreGState()
+            ctx.saveGState()
+            ctx.addPath(shape)
+            ctx.clip()
+            ctx.draw(image, in: rect)
+            ctx.restoreGState()
+            ctx.addPath(shape)
+            ctx.setStrokeColor(CGColor(gray: 0, alpha: 0.18))
+            ctx.setLineWidth(2)
+            ctx.strokePath()
+        }
+        return ctx.makeImage()
     }
 
     /// The glyph as the menu bar shows it (18 pt at 1x and 2x, light and

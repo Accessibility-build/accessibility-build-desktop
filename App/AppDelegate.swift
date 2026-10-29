@@ -22,8 +22,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             return
         }
         #endif
-        if !Permissions.hasScreenRecording && !Permissions.didExplain {
-            Windows.showPermission()
+        // A menu-bar app shows no window by itself; the first launch says
+        // where it went.
+        if !UserDefaults.standard.bool(forKey: "didShowWelcome") {
+            UserDefaults.standard.set(true, forKey: "didShowWelcome")
+            Windows.showWelcome()
         }
     }
 
@@ -38,6 +41,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             case "log": Windows.showSessionLog()
             case "settings": Windows.showSettings()
             case "permission": Windows.showPermission()
+            case "welcome": Windows.showWelcome()
             case "lens": LensController.shared.open()
             default: break
             }
@@ -48,7 +52,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         // Opening the app again from Finder or Spotlight should show
         // something, since a menu-bar app has no window by default.
-        if !flag { Permissions.hasScreenRecording ? Windows.showChecker() : Windows.showPermission() }
+        if !flag { Windows.showWelcome() }
         return true
     }
 }

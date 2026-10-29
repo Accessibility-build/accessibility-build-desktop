@@ -83,6 +83,12 @@ enum Windows {
         window.makeKeyAndOrderFront(nil)
     }
 
+    static func showWelcome() {
+        show("welcome", title: "Welcome", size: NSSize(width: 440, height: 620), resizable: false) {
+            WelcomeView()
+        }
+    }
+
     static func showPermission() {
         Permissions.didExplain = true
         show("permission", title: "Screen Recording", size: NSSize(width: 420, height: 560), resizable: false) {

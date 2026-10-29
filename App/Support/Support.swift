@@ -63,6 +63,23 @@ extension NSScreen {
     }
 }
 
+/// Links the app shows. The privacy policy has to be reachable from inside
+/// the app for the Mac App Store (guideline 5.1.1).
+enum AppLinks {
+    static let privacyPolicy = URL(string: "https://accessibility.build/desktop/privacy")!
+    static let support = URL(string: "https://accessibility.build/contact")!
+    static let home = URL(string: "https://accessibility.build/desktop")!
+
+    /// What leaves the Mac, which differs between the two builds.
+    static var networkStatement: String {
+        #if APP_STORE
+        "This version makes no network requests at all. Updates come from the Mac App Store."
+        #else
+        "The only network requests are the update check, which fetches a small file from accessibility.build, and update downloads from GitHub when you choose to install one."
+        #endif
+    }
+}
+
 enum Pasteboard {
     static func copy(_ text: String) {
         NSPasteboard.general.clearContents()

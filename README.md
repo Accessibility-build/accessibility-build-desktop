@@ -63,6 +63,7 @@ website's `lib/color` code. Run it whenever that code changes.
 - `-openWindows checker,log,settings,permission,lens` and
   `-activationPolicy regular` (Debug only) help UI tooling reach a menu-bar app.
 
-Releases: [docs/RELEASING.md](docs/RELEASING.md). Accessibility of the app
+Releases: [docs/RELEASING.md](docs/RELEASING.md) for the website download,
+[docs/APP_STORE.md](docs/APP_STORE.md) for the Mac App Store build. Accessibility of the app
 itself: [docs/ACCESSIBILITY.md](docs/ACCESSIBILITY.md). Plan and decisions:
 [docs/PLAN.md](docs/PLAN.md).

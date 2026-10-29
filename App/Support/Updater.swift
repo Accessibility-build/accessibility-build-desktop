@@ -1,4 +1,19 @@
 import Foundation
+#if APP_STORE
+
+/// The Mac App Store build has no updater of its own: the App Store
+/// updates it (guideline 2.4.5). Same surface, so callers need no checks.
+@MainActor
+final class Updater {
+    static let shared = Updater()
+    static let isAvailable = false
+    let updateAvailable = false
+    var automaticallyChecks: Bool { get { false } set {} }
+    func start() {}
+    func checkForUpdates() {}
+}
+
+#else
 import Sparkle
 
 /// Sparkle, configured in Info.plist: the feed is
@@ -8,6 +23,7 @@ import Sparkle
 @MainActor
 final class Updater: NSObject, SPUStandardUserDriverDelegate {
     static let shared = Updater()
+    static let isAvailable = true
     private var controller: SPUStandardUpdaterController?
 
     func start() {
@@ -45,3 +61,4 @@ final class Updater: NSObject, SPUStandardUserDriverDelegate {
         MainActor.assumeIsolated { updateAvailable = false }
     }
 }
+#endif

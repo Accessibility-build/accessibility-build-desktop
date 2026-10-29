@@ -49,7 +49,9 @@ final class StatusMenu: NSObject, NSMenuDelegate {
             add(menu, "Allow Screen Recording…", #selector(AppActions.showPermission), symbol: "lock.open")
         }
         add(menu, "Settings…", #selector(AppActions.showSettings), symbol: "gearshape", key: ",")
-        add(menu, "Check for Updates…", #selector(AppActions.checkForUpdates), symbol: "arrow.triangle.2.circlepath")
+        if Updater.isAvailable {
+            add(menu, "Check for Updates…", #selector(AppActions.checkForUpdates), symbol: "arrow.triangle.2.circlepath")
+        }
         add(menu, "About Accessibility Build", #selector(AppActions.showAbout), symbol: "info.circle")
         menu.addItem(.separator())
         let quit = NSMenuItem(title: "Quit Accessibility Build", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")

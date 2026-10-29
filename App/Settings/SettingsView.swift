@@ -76,17 +76,35 @@ struct GeneralSettings: View {
                 Text("Accessibility Build lives in the menu bar and uses almost no resources while idle.")
             }
 
-            Section("Updates") {
-                Toggle("Check for updates automatically", isOn: $autoUpdate)
-                    .onChange(of: autoUpdate) { Updater.shared.automaticallyChecks = autoUpdate }
-                LabeledContent("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
-                    Button("Check Now") { Updater.shared.checkForUpdates() }
+            if Updater.isAvailable {
+                Section("Updates") {
+                    Toggle("Check for updates automatically", isOn: $autoUpdate)
+                        .onChange(of: autoUpdate) { Updater.shared.automaticallyChecks = autoUpdate }
+                    LabeledContent("Version \(Self.version)") {
+                        Button("Check Now") { Updater.shared.checkForUpdates() }
+                    }
+                }
+            } else {
+                Section {
+                    LabeledContent("Version", value: Self.version)
+                } footer: {
+                    Text("Updates come from the Mac App Store.")
+                }
+            }
+
+            Section {
+                LabeledContent("Help and feedback") {
+                    Link("Contact Support", destination: AppLinks.support)
                 }
             }
         }
         .formStyle(.grouped)
         .frame(width: 460)
         .fixedSize(horizontal: false, vertical: true)
+    }
+
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? ""
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
@@ -149,7 +167,13 @@ struct PrivacySettings: View {
                     Text("The last ten pairs, kept on this Mac.")
                 }
             } footer: {
-                Text("Screen pixels are processed on this Mac and never uploaded. There is no account, analytics or tracking. The only network requests are the update check, which fetches a small file from accessibility.build, and update downloads from GitHub when you choose to install one.")
+                Text("Screen pixels are processed on this Mac and never uploaded. There is no account, analytics or tracking. \(AppLinks.networkStatement)")
+            }
+
+            Section {
+                LabeledContent("Privacy policy") {
+                    Link("Read the Policy", destination: AppLinks.privacyPolicy)
+                }
             }
         }
         .formStyle(.grouped)
