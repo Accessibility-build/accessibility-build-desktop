@@ -172,7 +172,9 @@ enum Snapshot {
         let page = SampleScreen.image(width: 2880, height: 1800, scale: 2)
         let wallpaper = Self.wallpaper()
         func save(_ image: CGImage?, _ name: String) {
-            guard let image, let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else { return }
+            // App Store Connect rejects screenshots that carry an alpha channel.
+            guard let image, let flat = opaque(image),
+                  let data = NSBitmapImageRep(cgImage: flat).representation(using: .png, properties: [:]) else { return }
             try? data.write(to: dir.appendingPathComponent("\(name).png"))
         }
         func capture(_ window: NSWindow) async -> CGImage? {
@@ -244,6 +246,17 @@ enum Snapshot {
             save(compose(wallpaper, dim: false, [(image, CGPoint(x: x, y: 180))]), "5-welcome")
             w.close()
         }
+    }
+
+    /// The image drawn over white with no alpha channel.
+    private static func opaque(_ image: CGImage) -> CGImage? {
+        guard let ctx = CGContext(data: nil, width: image.width, height: image.height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+        let rect = CGRect(x: 0, y: 0, width: image.width, height: image.height)
+        ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+        ctx.fill(rect)
+        ctx.draw(image, in: rect)
+        return ctx.makeImage()
     }
 
     /// A soft light backdrop for windows that are not about a page.
