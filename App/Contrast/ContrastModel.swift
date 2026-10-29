@@ -80,25 +80,25 @@ final class ContrastModel {
         var sideLabel: String { side == .text ? "Text color" : "Background color" }
     }
 
-    /// The nearest passing color for each unmet goal, on both sides of the pair.
-    var fixes: [Fix] {
+    /// The goal the suggestions aim for: the next WCAG level this pair
+    /// does not reach (AA for normal text, then AAA). Nil once AAA passes.
+    var fixGoal: (label: String, target: Double)? {
         let r = ratio
-        let goals: [(String, Double)] = [
-            ("AA large text and UI, 3:1", 3),
-            ("AA normal text, 4.5:1", 4.5),
-            ("AAA normal text, 7:1", 7),
-        ].filter { r < $0.1 }
-        var out: [Fix] = []
-        for (goal, target) in goals {
-            for side in [AutoFix.Side.text, .background] {
-                let color = AutoFix.nudge(text: text, background: background, target: target, side: side)
-                let after = side == .text ? WCAG.contrastRatio(color, background) : WCAG.contrastRatio(text, color)
-                // The search can fail when the target is out of reach at this hue.
-                guard after >= target else { continue }
-                out.append(Fix(side: side, goal: goal, target: target, color: color, ratio: after))
-            }
+        if r < 4.5 { return ("AA, normal text", 4.5) }
+        if r < 7 { return ("AAA, normal text", 7) }
+        return nil
+    }
+
+    /// The nearest passing color on each side of the pair, for `fixGoal`.
+    var fixes: [Fix] {
+        guard let goal = fixGoal else { return [] }
+        return [AutoFix.Side.text, .background].compactMap { side in
+            let color = AutoFix.nudge(text: text, background: background, target: goal.target, side: side)
+            let after = side == .text ? WCAG.contrastRatio(color, background) : WCAG.contrastRatio(text, color)
+            // Out of reach at this hue (white cannot get lighter, for one).
+            guard after >= goal.target else { return nil }
+            return Fix(side: side, goal: goal.label, target: goal.target, color: color, ratio: after)
         }
-        return out
     }
 
     func apply(_ fix: Fix) {

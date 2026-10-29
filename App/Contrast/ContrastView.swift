@@ -41,30 +41,13 @@ struct ContrastView: View {
             }
 
             Section {
-                LabeledContent("Lightness contrast") {
-                    Text(APCA.format(model.lc)).monospacedDigit().foregroundStyle(.primary)
-                }
-                ForEach([APCA.UseCase.fluentText, .largeText, .uiComponent]) { useCase in
-                    let level = APCA.level(model.lc, for: useCase)
-                    LabeledContent {
-                        APCABadge(level: level)
-                    } label: {
-                        Text(useCase.label)
-                        Text("Preferred Lc \(Int(useCase.thresholds.pass))")
-                    }
-                    .accessibilityElement(children: .ignore)
-                    .accessibilityLabel("\(useCase.label), preferred L c \(Int(useCase.thresholds.pass)): \(level.rawValue)")
-                }
-            } header: {
-                Text("APCA")
+                APCARow(lc: model.lc)
             } footer: {
-                Text("The method in the WCAG 3 working draft. Guidance only, not a WCAG 2.2 test.")
+                Text("APCA is the method in the WCAG 3 working draft. Guidance only, not a WCAG 2.2 test.")
             }
 
             Section {
-                ForEach(CVD.allCases) { type in
-                    VisionRow(type: type, text: model.text, background: model.background, baseRatio: model.ratio)
-                }
+                VisionStrip(text: model.text, background: model.background, baseRatio: model.ratio)
             } header: {
                 Text("Color vision")
             } footer: {
@@ -83,7 +66,7 @@ struct ContrastView: View {
                         })
                     }
                 } header: {
-                    Text("Nearest passing colors")
+                    Text("Nearest colors for \(model.fixGoal?.label ?? "")")
                 } footer: {
                     Text("Lightness changes only, keeping hue and chroma where possible.")
                 }
@@ -339,47 +322,78 @@ struct LevelBadge: View {
     static let width: CGFloat = 96
 }
 
-struct APCABadge: View {
-    let level: APCA.Level
+/// APCA in one row: Lc plus the three use cases that matter most.
+struct APCARow: View {
+    let lc: Double
+    private let cases: [(APCA.UseCase, String)] = [(.fluentText, "Body"), (.largeText, "Large"), (.uiComponent, "UI")]
 
     var body: some View {
-        HStack(spacing: 5) {
-            switch level {
-            case .pass: Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.pass)
-            case .caution: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.caution)
-            case .fail: Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.fail)
+        LabeledContent {
+            HStack(spacing: 14) {
+                ForEach(cases, id: \.1) { useCase, short in
+                    HStack(spacing: 4) {
+                        APCASymbol(level: APCA.level(lc, for: useCase))
+                        Text(short).foregroundStyle(.primary)
+                    }
+                    .help("\(useCase.label): preferred Lc \(Int(useCase.thresholds.pass)), \(APCA.level(lc, for: useCase).rawValue.lowercased())")
+                }
             }
-            Text(level.rawValue).foregroundStyle(.primary)
+        } label: {
+            Text("APCA")
+            Text(APCA.format(lc)).monospacedDigit()
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("APCA, L c \(String(format: "%.1f", lc)): " + cases.map { "\($0.0.label) \(APCA.level(lc, for: $0.0).rawValue.lowercased())" }.joined(separator: ", "))
+    }
+}
+
+struct APCASymbol: View {
+    let level: APCA.Level
+    var body: some View {
+        switch level {
+        case .pass: Image(systemName: "checkmark.circle.fill").foregroundStyle(Palette.pass)
+        case .caution: Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.caution)
+        case .fail: Image(systemName: "xmark.circle.fill").foregroundStyle(Palette.fail)
         }
     }
 }
 
-struct VisionRow: View {
-    let type: CVD
+/// The pair under each deficiency, side by side in one row.
+struct VisionStrip: View {
     let text: SRGB
     let background: SRGB
     let baseRatio: Double
+    private let short: [CVD: String] = [.protanopia: "Protan", .deuteranopia: "Deutan", .tritanopia: "Tritan", .achromatopsia: "Mono"]
 
     var body: some View {
-        let t = type.simulate(text), b = type.simulate(background)
-        let r = WCAG.contrastRatio(t, b)
-        let drops = ContrastRequirement.normalTextAA.passes(baseRatio) && !ContrastRequirement.normalTextAA.passes(r)
-        LabeledContent {
-            HStack(spacing: 12) {
-                Text(WCAG.formatRatio(r)).monospacedDigit().foregroundStyle(.primary)
-                Text("Aa")
-                    .font(.system(size: 13, weight: .semibold))
-                    .foregroundStyle(Color(t))
-                    .frame(width: 40, height: 24)
-                    .background(Color(b), in: RoundedRectangle(cornerRadius: 6, style: .continuous))
-                    .overlay(RoundedRectangle(cornerRadius: 6, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
+        HStack(spacing: 10) {
+            ForEach(CVD.allCases) { type in
+                let t = type.simulate(text), b = type.simulate(background)
+                let r = WCAG.contrastRatio(t, b)
+                let drops = ContrastRequirement.normalTextAA.passes(baseRatio) && !ContrastRequirement.normalTextAA.passes(r)
+                VStack(spacing: 5) {
+                    Text("Aa")
+                        .font(.system(size: 17, weight: .semibold))
+                        .foregroundStyle(Color(t))
+                        .frame(maxWidth: .infinity, minHeight: 40)
+                        .background(Color(b), in: RoundedRectangle(cornerRadius: 8, style: .continuous))
+                        .overlay(RoundedRectangle(cornerRadius: 8, style: .continuous).strokeBorder(Color(nsColor: .separatorColor)))
+                    HStack(spacing: 3) {
+                        if drops {
+                            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(Palette.caution)
+                        }
+                        Text(short[type] ?? type.name).foregroundStyle(.secondary)
+                        Text(WCAG.formatRatio(r)).monospacedDigit()
+                    }
+                    .font(.callout)
+                }
+                .frame(maxWidth: .infinity)
+                .help("\(type.name), \(type.explanation.lowercased())")
+                .accessibilityElement(children: .ignore)
+                .accessibilityLabel("\(type.name), \(type.explanation): simulated contrast \(WCAG.spokenRatio(r))\(drops ? ", below 4.5 to 1" : "")")
             }
-        } label: {
-            Text(type.name)
-            Text(drops ? "\(type.explanation). Drops below 4.5:1." : type.explanation)
         }
-        .accessibilityElement(children: .ignore)
-        .accessibilityLabel("\(type.name), \(type.explanation): simulated contrast \(WCAG.spokenRatio(r))\(drops ? ", below 4.5 to 1" : "")")
+        .padding(.vertical, 4)
     }
 }
 
@@ -404,8 +418,8 @@ struct FixRow: View {
                     .accessibilityLabel("Use \(fix.color.hex) as the \(fix.sideLabel.lowercased())")
             }
         } label: {
-            Text("\(fix.sideLabel) for \(fix.goal)")
-            Text("\(fix.color.hex), \(WCAG.formatRatio(fix.ratio))").monospacedDigit()
+            Text("\(fix.sideLabel) \(fix.color.hex)").monospacedDigit()
+            Text("\(WCAG.formatRatio(fix.ratio)) against the current \(fix.side == .text ? "background" : "text")").monospacedDigit()
         }
     }
 }

@@ -7,6 +7,9 @@ options:
     macOS: "14.0"
   createIntermediateGroups: true
   developmentLanguage: en
+  # XcodeGen does not know Icon Composer bundles yet and tags them
+  # wrapper.icon; Xcode only compiles them as icons with this type.
+  postGenCommand: sed -i '' 's/lastKnownFileType = wrapper.icon; path = AppIcon.icon/lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon/' AccessibilityBuild.xcodeproj/project.pbxproj
 settings:
   base:
     MARKETING_VERSION: 1.0.0
@@ -39,6 +42,11 @@ targets:
     sources:
       - path: App
       - path: Resources/Assets.xcassets
+      # macOS 26 and later draw this layered Liquid Glass icon; earlier
+      # systems use AppIcon in the asset catalog. Both share the name.
+      - path: Resources/AppIcon.icon
+        type: file
+        buildPhase: resources
       - path: Resources/PrivacyInfo.xcprivacy
         buildPhase: resources
     info:

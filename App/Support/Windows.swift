@@ -50,9 +50,13 @@ enum Windows {
     }
 
     static func showChecker() {
-        show("checker", title: "Check Colors", size: NSSize(width: 540, height: 680), toolbar: true) {
+        let window = show("checker", title: "Check Colors", size: NSSize(width: 540, height: 760), toolbar: true) {
             ContrastView(model: ContrastModel.shared)
         }
+        // AppKit would focus the first hex field and select its text, which
+        // reads as an edit in progress. Start with nothing focused; Tab
+        // reaches the fields.
+        DispatchQueue.main.async { window.makeFirstResponder(nil) }
     }
 
     static func showSessionLog() {
@@ -62,9 +66,21 @@ enum Windows {
     }
 
     static func showSettings() {
-        show("settings", title: "Settings", size: NSSize(width: 540, height: 620)) {
-            SettingsView()
+        if let window = windows["settings"] {
+            NSApp.activate()
+            window.makeKeyAndOrderFront(nil)
+            return
         }
+        let window = NSWindow(contentViewController: SettingsTabsController())
+        window.styleMask = [.titled, .closable, .miniaturizable]
+        window.toolbarStyle = .preference
+        window.isReleasedWhenClosed = false
+        window.title = SettingsTabsController.tabs.first?.title ?? "Settings"
+        window.center()
+        window.setFrameAutosaveName("window.settings")
+        windows["settings"] = window
+        NSApp.activate()
+        window.makeKeyAndOrderFront(nil)
     }
 
     static func showPermission() {

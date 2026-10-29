@@ -2,59 +2,68 @@ import KeyboardShortcuts
 import ServiceManagement
 import SwiftUI
 
-struct SettingsView: View {
+/// Settings the way macOS apps present them: a fixed-size window with
+/// toolbar tabs, each tab a short grouped form that fits without scrolling.
+final class SettingsTabsController: NSTabViewController {
+    static let tabs: [(title: String, symbol: String, view: AnyView)] = [
+        ("General", "gearshape", AnyView(GeneralSettings())),
+        ("Shortcuts", "keyboard", AnyView(ShortcutSettings())),
+        ("Privacy", "hand.raised", AnyView(PrivacySettings())),
+    ]
+
+    override func viewDidLoad() {
+        super.viewDidLoad()
+        tabStyle = .toolbar
+        for tab in Self.tabs {
+            let host = NSHostingController(rootView: tab.view)
+            // The tab controller titles the window from the selected tab's
+            // view controller; without this it reads "Untitled".
+            host.title = tab.title
+            // Each tab sizes the window to its own content, as System
+            // Settings-style preference windows do.
+            host.sizingOptions = [.preferredContentSize]
+            let item = NSTabViewItem(viewController: host)
+            item.label = tab.title
+            item.image = NSImage(systemSymbolName: tab.symbol, accessibilityDescription: tab.title)
+            addTabViewItem(item)
+        }
+    }
+
+    override func tabView(_ tabView: NSTabView, didSelect tabViewItem: NSTabViewItem?) {
+        super.tabView(tabView, didSelect: tabViewItem)
+        // The window takes the selected tab's name, like every macOS settings window.
+        view.window?.title = tabViewItem?.label ?? "Settings"
+    }
+}
+
+struct GeneralSettings: View {
     @State private var launchAtLogin = SMAppService.mainApp.status == .enabled
     @State private var loginError: String?
     @State private var autoUpdate = Updater.shared.automaticallyChecks
-    @State private var hasPermission = Permissions.hasScreenRecording
 
     var body: some View {
         Form {
-            Section("Keyboard shortcuts") {
-                ForEach(Shortcuts.all) { entry in
-                    LabeledContent(entry.title) {
-                        ShortcutRecorder(name: entry.name, label: "\(entry.title) shortcut")
-                    }
-                }
-                Text("Click a shortcut and press a new combination. Press Delete to remove one.")
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-
-            Section("General") {
-                Toggle("Open Accessibility Build at login", isOn: $launchAtLogin)
+            Section {
+                Toggle("Open at login", isOn: $launchAtLogin)
                     .onChange(of: launchAtLogin) { setLaunchAtLogin(launchAtLogin) }
                 if let loginError {
-                    Text(loginError).font(.callout).foregroundStyle(Palette.fail)
+                    Text(loginError).foregroundStyle(Palette.fail)
                 }
+            } footer: {
+                Text("Accessibility Build lives in the menu bar and uses almost no resources while idle.")
             }
 
             Section("Updates") {
                 Toggle("Check for updates automatically", isOn: $autoUpdate)
                     .onChange(of: autoUpdate) { Updater.shared.automaticallyChecks = autoUpdate }
-                Button("Check for Updates Now") { Updater.shared.checkForUpdates() }
-            }
-
-            Section("Screen Recording") {
-                Label(
-                    hasPermission ? "Allowed. The picker, lens and captures can read the screen." : "Not allowed yet. The picker, lens and captures need it.",
-                    systemImage: hasPermission ? "checkmark.circle.fill" : "exclamationmark.triangle.fill"
-                )
-                Button("Open Screen Recording Settings") { Permissions.openSystemSettings() }
-            }
-
-            Section("Privacy") {
-                Text("Screen pixels are processed on this Mac and never uploaded. There is no account, no analytics and no tracking. The only network requests are the update check, which fetches a small file from accessibility.build, and update downloads from GitHub when you choose to install one.")
-                    .fixedSize(horizontal: false, vertical: true)
-                Button("Clear Recent Colors") {
-                    ContrastModel.shared.clearRecent()
-                    Announcer.say("Recent colors cleared")
+                LabeledContent("Version \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "")") {
+                    Button("Check Now") { Updater.shared.checkForUpdates() }
                 }
             }
         }
         .formStyle(.grouped)
-        .frame(minWidth: 480, minHeight: 560)
-        .onAppear { hasPermission = Permissions.hasScreenRecording }
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func setLaunchAtLogin(_ on: Bool) {
@@ -65,6 +74,65 @@ struct SettingsView: View {
             loginError = "macOS did not accept the change: \(error.localizedDescription)"
             launchAtLogin = SMAppService.mainApp.status == .enabled
         }
+    }
+}
+
+struct ShortcutSettings: View {
+    var body: some View {
+        Form {
+            Section {
+                ForEach(Shortcuts.all) { entry in
+                    LabeledContent(entry.title) {
+                        ShortcutRecorder(name: entry.name, label: "\(entry.title) shortcut")
+                    }
+                }
+            } footer: {
+                Text("Click a shortcut, then press the new combination. Press Delete to remove it.")
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+struct PrivacySettings: View {
+    @State private var hasPermission = Permissions.hasScreenRecording
+
+    var body: some View {
+        Form {
+            Section {
+                LabeledContent {
+                    Button("Open System Settings") { Permissions.openSystemSettings() }
+                } label: {
+                    Label {
+                        Text("Screen Recording")
+                        Text(hasPermission ? "Allowed" : "Not allowed yet. The picker, lens and captures need it.")
+                    } icon: {
+                        Image(systemName: hasPermission ? "checkmark.circle.fill" : "exclamationmark.triangle.fill")
+                            .foregroundStyle(hasPermission ? Palette.pass : Palette.caution)
+                    }
+                }
+            }
+
+            Section {
+                LabeledContent {
+                    Button("Clear") {
+                        ContrastModel.shared.clearRecent()
+                        Announcer.say("Recent colors cleared")
+                    }
+                } label: {
+                    Text("Recent colors")
+                    Text("The last ten pairs, kept on this Mac.")
+                }
+            } footer: {
+                Text("Screen pixels are processed on this Mac and never uploaded. There is no account, analytics or tracking. The only network requests are the update check, which fetches a small file from accessibility.build, and update downloads from GitHub when you choose to install one.")
+            }
+        }
+        .formStyle(.grouped)
+        .frame(width: 460)
+        .fixedSize(horizontal: false, vertical: true)
+        .onAppear { hasPermission = Permissions.hasScreenRecording }
     }
 }
 

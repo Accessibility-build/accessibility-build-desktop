@@ -130,7 +130,7 @@ enum CountdownHUD {
         model.remaining = seconds
         let mouse = NSEvent.mouseLocation
         let screen = NSScreen.screens.first { NSMouseInRect(mouse, $0.frame, false) } ?? NSScreen.main
-        let size = NSSize(width: 120, height: 120)
+        let size = NSSize(width: 112, height: 112)
         let panel = NSPanel(contentRect: NSRect(origin: .zero, size: size), styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
         panel.level = .statusBar
         panel.isOpaque = false
@@ -158,11 +158,12 @@ enum CountdownHUD {
         let model: Model
         var body: some View {
             Text("\(model.remaining)")
-                .font(.system(size: 56, weight: .semibold, design: .rounded))
+                .font(.system(size: 54, weight: .semibold, design: .rounded))
                 .monospacedDigit()
                 .foregroundStyle(.white)
-                .frame(width: 120, height: 120)
-                .background(Color(white: 0.1), in: RoundedRectangle(cornerRadius: 24))
+                .frame(width: 112, height: 112)
+                .modifier(HUDBackground(shape: RoundedRectangle(cornerRadius: 28, style: .continuous)))
+                .environment(\.colorScheme, .dark)
                 .accessibilityLabel("Capturing in \(model.remaining) seconds")
         }
     }

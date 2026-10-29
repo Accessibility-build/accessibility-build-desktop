@@ -1,6 +1,7 @@
 #if DEBUG
 import AppKit
 import AuditCore
+import SwiftUI
 import ColorCore
 
 /// Debug builds only: renders the app's windows to PNG files for docs,
@@ -42,12 +43,15 @@ enum Snapshot {
             AXAudit.write(AXAudit.audit(window), name: name, to: dir)
         }
 
+        // The menu-bar glyph at 1x and 2x, black and white, magnified.
+        write(statusIconPreview(), "status-icon")
+
         // Check Colors with a failing pair, so the fixes section shows.
         ContrastModel.shared.load(text: SRGB(hex: "#8A8A8A")!, background: .white, worstCaseArea: nil)
         Windows.showChecker()
         if let w = Windows.window("checker") {
             // Taller than most screens allow, so shoot the top and the bottom.
-            w.setContentSize(NSSize(width: 560, height: 900))
+            w.setContentSize(NSSize(width: 540, height: 760))
             await settle()
             write(png(of: w), "check-colors")
             audit(w, "check-colors")
@@ -67,11 +71,15 @@ enum Snapshot {
         if let w = Windows.window("log") { await settle(); write(png(of: w), "session-log"); audit(w, "session-log"); w.close() }
 
         Windows.showSettings()
-        if let w = Windows.window("settings") {
-            w.setContentSize(NSSize(width: 560, height: 900))
-            await settle()
-            write(png(of: w), "settings")
-            audit(w, "settings")
+        if let w = Windows.window("settings"), let tabs = w.contentViewController as? NSTabViewController {
+            for (i, tab) in SettingsTabsController.tabs.enumerated() {
+                tabs.selectedTabViewItemIndex = i
+                await settle()
+                let name = "settings-\(tab.title.lowercased())"
+                write(png(of: w), name)
+                audit(w, name)
+            }
+            tabs.selectedTabViewItemIndex = 0
             w.close()
         }
 
@@ -86,6 +94,18 @@ enum Snapshot {
                 record: CaptureRecord(kind: .region, pixelWidth: region.width, pixelHeight: region.height, delayed: true)))
             if let w = Windows.window("capture") { await settle(); write(png(of: w), "capture"); audit(w, "capture"); w.close() }
         }
+
+        // The three-second countdown.
+        let countdownModel = CountdownHUD.Model()
+        let countdown = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 112, height: 112), styleMask: [.borderless], backing: .buffered, defer: false)
+        countdown.isOpaque = false
+        countdown.backgroundColor = .clear
+        countdown.contentView = NSHostingView(rootView: CountdownHUD.CountdownView(model: countdownModel))
+        countdown.center()
+        countdown.orderFrontRegardless()
+        await settle()
+        write(png(of: countdown), "countdown")
+        countdown.orderOut(nil)
 
         // Lens over the sample screen.
         let sample = SampleScreen.image(width: 3200, height: 2000, scale: 2)
@@ -123,6 +143,43 @@ enum Snapshot {
             return
         }
         for sub in view.subviews { scrollToBottom(sub) }
+    }
+
+    /// The glyph as the menu bar shows it (18 pt at 1x and 2x, light and
+    /// dark bars), each cell blown up 8 times with no smoothing.
+    private static func statusIconPreview() -> Data? {
+        let cell = 18, zoom = 8, gap = 8
+        let width = (cell * 2 + gap * 3) * zoom * 2, height = (cell * 2 + gap * 2) * zoom
+        guard let ctx = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8, bytesPerRow: 0,
+                                  space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return nil }
+        ctx.interpolationQuality = .none
+        for (i, (bar, ink)) in [(NSColor(white: 0.93, alpha: 1), NSColor.black), (NSColor(white: 0.16, alpha: 1), NSColor.white)].enumerated() {
+            let originX = i * width / 2
+            ctx.setFillColor(bar.cgColor)
+            ctx.fill(CGRect(x: originX, y: 0, width: width / 2, height: height))
+            for (j, scale) in [1, 2].enumerated() {
+                // Render at the real pixel size, then magnify.
+                let px = cell * scale
+                guard let small = CGContext(data: nil, width: px, height: px, bitsPerComponent: 8, bytesPerRow: 0,
+                                            space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { continue }
+                small.translateBy(x: 0, y: CGFloat(px))
+                small.scaleBy(x: CGFloat(scale), y: -CGFloat(scale))
+                NSGraphicsContext.saveGraphicsState()
+                NSGraphicsContext.current = NSGraphicsContext(cgContext: small, flipped: true)
+                StatusIcon.draw(in: CGRect(x: 0, y: 0, width: cell, height: cell))
+                NSGraphicsContext.restoreGraphicsState()
+                guard let mask = small.makeImage() else { continue }
+                let size = cell * zoom
+                let rect = CGRect(x: originX + (gap + j * (cell + gap)) * zoom, y: gap * zoom, width: size, height: size)
+                ctx.saveGState()
+                ctx.clip(to: rect, mask: mask)
+                ctx.setFillColor(ink.cgColor)
+                ctx.fill(rect)
+                ctx.restoreGState()
+            }
+        }
+        guard let image = ctx.makeImage() else { return nil }
+        return NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:])
     }
 
     /// The window including its title bar.

@@ -85,6 +85,53 @@ for size in [16, 32, 128, 256, 512] {
         try! drawIcon(size: size * scale).write(to: URL(fileURLWithPath: outDir).appendingPathComponent(name))
     }
 }
+// Layers for the macOS 26 icon (Resources/AppIcon.icon): the arcs and the
+// letter as separate white shapes on transparent 1024 canvases, so the system
+// renders each as its own piece of glass over the dark fill in icon.json.
+func drawLayer(_ part: String) -> Data {
+    let size = 1024
+    let ctx = CGContext(data: nil, width: size, height: size, bitsPerComponent: 8, bytesPerRow: 0,
+                        space: CGColorSpace(name: CGColorSpace.sRGB)!, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+    let k: CGFloat = 1.9
+    func p(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: 512 + (x - 256) * k, y: 512 - (y - 256) * k) }
+    ctx.setFillColor(CGColor(gray: 1, alpha: 1))
+    ctx.setStrokeColor(CGColor(gray: 1, alpha: 1))
+    if part == "letter" {
+        let legs = CGMutablePath()
+        legs.addLines(between: [p(256, 108), p(358, 404), p(318, 404), p(256, 196), p(194, 404), p(152, 404)])
+        legs.closeSubpath()
+        ctx.addPath(legs)
+        ctx.fillPath()
+        func leftEdge(_ y: CGFloat) -> CGFloat { 256 - (y - 108) * (104.0 / 296.0) }
+        func rightEdge(_ y: CGFloat) -> CGFloat { 256 + (y - 108) * (102.0 / 296.0) }
+        let bar = CGMutablePath()
+        bar.addLines(between: [p(leftEdge(300), 300), p(rightEdge(300), 300), p(rightEdge(336), 336), p(leftEdge(336), 336)])
+        bar.closeSubpath()
+        ctx.addPath(bar)
+        ctx.fillPath()
+    } else {
+        ctx.setLineWidth(22 * k)
+        ctx.setLineCap(.round)
+        let upper = CGMutablePath()
+        upper.move(to: p(150, 238))
+        upper.addQuadCurve(to: p(362, 238), control: p(256, 176))
+        ctx.addPath(upper)
+        ctx.strokePath()
+        let lower = CGMutablePath()
+        lower.move(to: p(150, 270))
+        lower.addQuadCurve(to: p(362, 270), control: p(256, 334))
+        ctx.addPath(lower)
+        ctx.strokePath()
+    }
+    return NSBitmapImageRep(cgImage: ctx.makeImage()!).representation(using: .png, properties: [:])!
+}
+
+let layerDir = URL(fileURLWithPath: "Resources/AppIcon.icon/Assets")
+try? FileManager.default.createDirectory(at: layerDir, withIntermediateDirectories: true)
+for part in ["arcs", "letter"] {
+    try! drawLayer(part).write(to: layerDir.appendingPathComponent("\(part).png"))
+}
+
 // A 1024 px preview for checking the drawing by eye.
 try? FileManager.default.createDirectory(atPath: "build", withIntermediateDirectories: true)
 try! drawIcon(size: 1024).write(to: URL(fileURLWithPath: "build/icon-1024.png"))

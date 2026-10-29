@@ -10,9 +10,7 @@ final class StatusMenu: NSObject, NSMenuDelegate {
     override init() {
         super.init()
         if let button = item.button {
-            let image = NSImage(systemSymbolName: "circle.lefthalf.filled", accessibilityDescription: "Accessibility Build")
-            image?.isTemplate = true
-            button.image = image
+            button.image = StatusIcon.make()
             button.toolTip = "Accessibility Build"
             button.setAccessibilityLabel("Accessibility Build")
         }
