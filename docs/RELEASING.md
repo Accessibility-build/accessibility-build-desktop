@@ -29,7 +29,8 @@ small change to the website.
 
 1. Bump `MARKETING_VERSION` and `CURRENT_PROJECT_VERSION` in `project.yml`.
    The build number must always increase; Sparkle compares it.
-2. Add `## <version> - <date>` to `CHANGELOG.md`.
+2. Add `## <version> - <date>` to `CHANGELOG.md` and write
+   `docs/releases/<version>.md` (the GitHub release notes).
 3. Run the accessibility checklist in `docs/ACCESSIBILITY.md` on a Debug build.
 4. `scripts/release.sh`. It runs the tests, archives a universal build,
    exports it with Developer ID, notarizes and staples the app, builds and
@@ -39,7 +40,7 @@ small change to the website.
 
    ```sh
    gh release create v<version> build/release/Accessibility-Build-<version>.dmg build/release/SHA256SUMS.txt \
-     --repo Accessibility-build/accessibility-build-desktop --title "Accessibility Build <version>" --notes-file <notes>
+     --repo Accessibility-build/accessibility-build-desktop --title "Accessibility Build <version>" --notes-file docs/releases/<version>.md
    ```
 
 6. Website, on a branch: add the printed entry at the top of
