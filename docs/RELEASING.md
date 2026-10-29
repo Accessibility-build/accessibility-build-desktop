@@ -32,7 +32,8 @@ small change to the website.
 2. Add `## <version> - <date>` to `CHANGELOG.md` and write
    `docs/releases/<version>.md` (the GitHub release notes).
 3. Run the accessibility checklist in `docs/ACCESSIBILITY.md` on a Debug build.
-4. `scripts/release.sh`. It runs the tests, archives a universal build,
+4. `scripts/release.sh`. (`SKIP_NOTARIZE=1 scripts/release.sh` rehearses
+   every step except notarization; never publish its output.) It runs the tests, archives a universal build,
    exports it with Developer ID, notarizes and staples the app, builds and
    signs the DMG, notarizes and staples the DMG, runs Gatekeeper checks, signs
    the DMG for Sparkle, and prints the entry for the website.

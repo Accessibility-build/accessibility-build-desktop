@@ -10,6 +10,9 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 NOTARY_PROFILE="${NOTARY_PROFILE:-AB_NOTARY}"
+# SKIP_NOTARIZE=1 rehearses everything else (archive, export, DMG, signatures)
+# when the notarization profile is not set up yet. Its output must not ship.
+SKIP_NOTARIZE="${SKIP_NOTARIZE:-0}"
 SPARKLE_KEY="${SPARKLE_KEY:-$HOME/.config/accessibility-build/sparkle-ed25519-private.key}"
 IDENTITY="Developer ID Application: Khushwant Parihar (TVQX6QVQ7N)"
 SPARKLE_BIN="build/SourcePackages/artifacts/sparkle/Sparkle/bin"
@@ -50,10 +53,12 @@ echo "==> Verify signature"
 codesign --verify --deep --strict --verbose=2 "$APP"
 lipo -archs "$APP/Contents/MacOS/Accessibility Build"
 
-echo "==> Notarize and staple the app"
-ditto -c -k --keepParent "$APP" build/release/app.zip
-xcrun notarytool submit build/release/app.zip --keychain-profile "$NOTARY_PROFILE" --wait
-xcrun stapler staple "$APP"
+if [[ "$SKIP_NOTARIZE" != 1 ]]; then
+  echo "==> Notarize and staple the app"
+  ditto -c -k --keepParent "$APP" build/release/app.zip
+  xcrun notarytool submit build/release/app.zip --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$APP"
+fi
 
 echo "==> DMG"
 DMG="build/release/Accessibility-Build-$VERSION.dmg"
@@ -64,14 +69,19 @@ ln -s /Applications "$STAGE/Applications"
 hdiutil create -volname "Accessibility Build" -srcfolder "$STAGE" -fs HFS+ -format ULFO -ov "$DMG" -quiet
 codesign --sign "$IDENTITY" --timestamp "$DMG"
 
-echo "==> Notarize and staple the DMG"
-xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
-xcrun stapler staple "$DMG"
+if [[ "$SKIP_NOTARIZE" != 1 ]]; then
+  echo "==> Notarize and staple the DMG"
+  xcrun notarytool submit "$DMG" --keychain-profile "$NOTARY_PROFILE" --wait
+  xcrun stapler staple "$DMG"
 
-echo "==> Gatekeeper checks"
-spctl --assess --type execute --verbose=2 "$APP"
-spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
-xcrun stapler validate "$DMG"
+  echo "==> Gatekeeper checks"
+  spctl --assess --type execute --verbose=2 "$APP"
+  spctl --assess --type open --context context:primary-signature --verbose=2 "$DMG"
+  xcrun stapler validate "$DMG"
+else
+  echo "==> DRY RUN: not notarized. Do not publish these files."
+  codesign --verify --verbose=2 "$DMG"
+fi
 
 echo "==> Sparkle signature"
 SIG_LINE=$("$SPARKLE_BIN/sign_update" --ed-key-file "$SPARKLE_KEY" "$DMG")
